@@ -25,15 +25,16 @@ func (h *HttpHandler) HandleTripPreview(w http.ResponseWriter, r *http.Request) 
 	}
 	defer r.Body.Close()
 
-	t, err := h.Service.CreateTrip(r.Context(), &domain.RideFareModel{
-		UserID: "42",
-	})
+	t, err := h.Service.GetRoute(r.Context(), &reqBody.Pickup, &reqBody.Destination)
 	if err != nil {
-		http.Error(w, "failed to create trip", http.StatusInternalServerError)
+		http.Error(w, "failed to get route", http.StatusInternalServerError)
 		return
 	}
 
-	writeJSON(w, http.StatusOK, t)
+	if err := writeJSON(w, http.StatusOK, t); err != nil {
+		http.Error(w, "failed to write response", http.StatusInternalServerError)
+		return
+	}
 }
 
 func writeJSON(w http.ResponseWriter, status int, data any) error {
