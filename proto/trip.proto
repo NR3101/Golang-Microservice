@@ -1,0 +1,48 @@
+syntax = "proto3"; // version of protobuf
+
+package trip; // package name i.e namespace for the generated code
+
+option go_package = "shared/proto/trip;trip"; // go package for the generated code
+
+// service in protobuf is like an interface in go, it defines the methods that can be called remotely
+service TripService {
+  // rpc is a method that can be called remotely, it takes a request message and returns a response message
+  rpc PreviewTrip (PreviewTripRequest) returns (PreviewTripResponse);
+}
+
+// messages in protobuf are like structs in go, they define the data that can be sent and received
+message PreviewTripRequest {
+  // The no. here is the field number, it is used to identify the field in the binary format, it should be unique within the message
+  string userID = 1;
+  Coordinate startLocation = 2;
+  Coordinate endLocation = 3;
+}
+
+message PreviewTripResponse {
+  string tripID = 1;
+  Route route = 2;
+  // repeated is like a slice in go, it allows you to have multiple values of the same type
+  repeated RideFare rideFares = 3;
+}
+
+message Coordinate {
+  double latitude = 1;
+  double longitude = 2;
+}
+
+message Route {
+  repeated Geometry geometry = 1;
+  double distance = 2;
+  double duration = 3;
+}
+
+message Geometry {
+  repeated Coordinate coordinates = 1;
+}
+
+message RideFare {
+  string id = 1;
+  string  userID = 2;
+  string packageSlug = 3;
+  double totalPriceInCents = 4;
+}
