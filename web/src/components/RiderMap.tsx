@@ -16,7 +16,7 @@ import { BackendEndpoints, HTTPTripPreviewRequestPayload, HTTPTripPreviewRespons
 
 const userMarker = new L.Icon({
     iconUrl: "https://maps.google.com/mapfiles/kml/pushpin/red-pushpin.png",
-    iconSize: [40, 40], // Size of the marker
+    iconSize: [30, 30], // Size of the marker
     iconAnchor: [20, 40], // Anchor point
 });
 
