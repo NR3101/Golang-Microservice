@@ -1,7 +1,6 @@
 package main
 
 import (
-	"bytes"
 	"encoding/json"
 	"log"
 	"net/http"
@@ -18,34 +17,27 @@ func handleTripPreview(w http.ResponseWriter, r *http.Request) {
 	defer r.Body.Close()
 
 	if reqBody.UserID == "" {
-		http.Error(w, "userID is required", http.StatusBadRequest)
+		log.Printf("missing userID in request body")
+		http.Error(w, "missing userID in request body", http.StatusBadRequest)
 		return
 	}
 
-	jsonBody, _ := json.Marshal(reqBody)
-	reader := bytes.NewReader(jsonBody)
-
+	// Why to create a new gRPC client for each request: bcz if a service is down we don't want to block the entire API gateway, we can just return an error for that specific request and let the client handle it, instead of blocking all requests until the service is back up. This way we can have better fault tolerance and resilience in our system.
 	tripService, err := grpc_clients.NewTripServiceClient()
 	if err != nil {
-		log.Fatalf("failed to create trip service client: %v", err)
+		log.Printf("failed to create trip service client: %v", err)
+		return
 	}
 	defer tripService.Close()
 
-	// Call trip service
-	res, err := http.Post("http://trip-service:8083/preview", "application/json", reader)
+	tripPreview, err := tripService.Client.PreviewTrip(r.Context(), reqBody.ToProto())
 	if err != nil {
-		log.Printf("failed to call trip service: %v", err)
-		return
-	}
-	defer res.Body.Close()
-
-	var respBody any
-	if err := json.NewDecoder(res.Body).Decode(&respBody); err != nil {
-		http.Error(w, "failed to decode trip service response", http.StatusInternalServerError)
+		log.Printf("failed to get trip preview: %v", err)
+		http.Error(w, "failed to get trip preview", http.StatusInternalServerError)
 		return
 	}
 
-	response := contracts.APIResponse{Data: respBody}
+	response := contracts.APIResponse{Data: tripPreview}
 
 	writeJSON(w, http.StatusCreated, response)
 }
