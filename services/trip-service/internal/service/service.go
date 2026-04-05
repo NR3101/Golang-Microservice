@@ -58,3 +58,73 @@ func (s *Service) GetRoute(ctx context.Context, pickup, destination *types.Coord
 
 	return &routeResp, nil
 }
+
+func (s *Service) EstimatePackagesPriceWithRoute(route *tripTypes.OSRMApiResponse) []*domain.RideFareModel {
+	baseFares := getBaseFares()
+	estimatedFares := make([]*domain.RideFareModel, len(baseFares))
+
+	for i, fare := range baseFares {
+		estimatedFares[i] = estimateFareWithRoute(fare, route)
+	}
+
+	return estimatedFares
+}
+
+func (s *Service) GenerateTripFares(ctx context.Context, rideFares []*domain.RideFareModel, userID string) ([]*domain.RideFareModel, error) {
+	fares := make([]*domain.RideFareModel, len(rideFares))
+
+	for i, fare := range rideFares {
+		fares[i] = &domain.RideFareModel{
+			ID:                primitive.NewObjectID(),
+			UserID:            userID,
+			PackageSlug:       fare.PackageSlug,
+			TotalPriceInCents: fare.TotalPriceInCents,
+		}
+
+		if err := s.repo.SaveRideFare(ctx, fares[i]); err != nil {
+			return nil, fmt.Errorf("failed to save fare: %w", err)
+		}
+	}
+
+	return fares, nil
+}
+
+func estimateFareWithRoute(fare *domain.RideFareModel, route *tripTypes.OSRMApiResponse) *domain.RideFareModel {
+	pricingCfg := tripTypes.DefaultPricingConfig()
+	packagePrice := fare.TotalPriceInCents
+
+	distanceKm := route.Routes[0].Distance
+	durationMin := route.Routes[0].Duration
+
+	distanceFare := distanceKm * pricingCfg.PricePerUnitOfDistance
+	timeFare := durationMin * pricingCfg.PricePerMinute
+
+	totalFare := packagePrice + distanceFare + timeFare
+
+	return &domain.RideFareModel{
+		PackageSlug:       fare.PackageSlug,
+		TotalPriceInCents: totalFare,
+	}
+}
+
+func getBaseFares() []*domain.RideFareModel {
+	return []*domain.RideFareModel{
+		{
+			PackageSlug:       "suv",
+			TotalPriceInCents: 500,
+		},
+		{
+			PackageSlug:       "sedan",
+			TotalPriceInCents: 350,
+		},
+		{
+			PackageSlug:       "van",
+			TotalPriceInCents: 700,
+		},
+		{
+			PackageSlug:       "luxury",
+			TotalPriceInCents: 2500,
+		},
+	}
+
+}
