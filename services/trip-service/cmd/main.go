@@ -16,7 +16,7 @@ import (
 )
 
 var (
-	grpcAddr = env.GetString("HTTP_ADDR", ":9093")
+	grpcAddr = env.GetString("GRPC_ADDR", ":9093")
 )
 
 func main() {

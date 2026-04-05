@@ -25,8 +25,7 @@ func handleTripPreview(w http.ResponseWriter, r *http.Request) {
 	// Why to create a new gRPC client for each request: bcz if a service is down we don't want to block the entire API gateway, we can just return an error for that specific request and let the client handle it, instead of blocking all requests until the service is back up. This way we can have better fault tolerance and resilience in our system.
 	tripService, err := grpc_clients.NewTripServiceClient()
 	if err != nil {
-		log.Printf("failed to create trip service client: %v", err)
-		return
+		log.Fatalf("failed to create trip service client: %v", err)
 	}
 	defer tripService.Close()
 
@@ -38,6 +37,32 @@ func handleTripPreview(w http.ResponseWriter, r *http.Request) {
 	}
 
 	response := contracts.APIResponse{Data: tripPreview}
+
+	writeJSON(w, http.StatusCreated, response)
+}
+
+func handleTripStart(w http.ResponseWriter, r *http.Request) {
+	var reqBody startTripRequest
+	if err := json.NewDecoder(r.Body).Decode(&reqBody); err != nil {
+		http.Error(w, "invalid request body", http.StatusBadRequest)
+		return
+	}
+	defer r.Body.Close()
+
+	tripService, err := grpc_clients.NewTripServiceClient()
+	if err != nil {
+		log.Fatalf("failed to create trip service client: %v", err)
+	}
+	defer tripService.Close()
+
+	trip, err := tripService.Client.CreateTrip(r.Context(), reqBody.ToProto())
+	if err != nil {
+		log.Printf("failed to start trip: %v", err)
+		http.Error(w, "failed to start trip", http.StatusInternalServerError)
+		return
+	}
+
+	response := contracts.APIResponse{Data: trip}
 
 	writeJSON(w, http.StatusCreated, response)
 }
