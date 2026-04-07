@@ -3,8 +3,9 @@ package main
 import (
 	"log"
 	"net/http"
+	"ride-sharing/services/api-gateway/grpc_clients"
 	"ride-sharing/shared/contracts"
-	"ride-sharing/shared/util"
+	"ride-sharing/shared/proto/driver"
 
 	"github.com/gorilla/websocket"
 )
@@ -64,23 +65,34 @@ func handleDriversWebSocket(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	type Driver struct {
-		Id             string `json:"id"`
-		Name           string `json:"name"`
-		ProfilePicture string `json:"profilePicture"`
-		CarPlate       string `json:"carPlate"`
-		PackageSlug    string `json:"packageSlug"`
+	driverService, err := grpc_clients.NewDriverServiceClient()
+	if err != nil {
+		log.Fatalf("failed to create driver service client: %v", err)
+	}
+
+	// We are registering the driver when they connect to the WebSocket, and we will unregister them when they disconnect. This way, we can keep track of which drivers are currently connected and available for trips.
+	defer func() {
+		driverService.Client.UnregisterDriver(r.Context(), &driver.RegisterDriverRequest{
+			DriverID:    userID,
+			PackageSlug: packageSlug,
+		})
+
+		driverService.Close() // Close the gRPC connection when the driver disconnects
+		log.Printf("Driver %s unregistered", userID)
+	}()
+
+	driverData, err := driverService.Client.RegisterDriver(r.Context(), &driver.RegisterDriverRequest{
+		DriverID:    userID,
+		PackageSlug: packageSlug,
+	})
+	if err != nil {
+		log.Printf("failed to register driver: %v", err)
+		return
 	}
 
 	msg := contracts.WSMessage{
 		Type: "driver.cmd.register",
-		Data: Driver{
-			Id:             userID,
-			Name:           "John Doe",
-			ProfilePicture: util.GetRandomAvatar(1),
-			CarPlate:       "ABC-123",
-			PackageSlug:    packageSlug,
-		},
+		Data: driverData.Driver,
 	}
 
 	// Here, we are sending a message via the WebSocket connection to the driver after they connect
