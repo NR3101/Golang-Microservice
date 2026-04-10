@@ -10,6 +10,7 @@ import (
 	"ride-sharing/services/trip-service/internal/infrastructure/repository"
 	"ride-sharing/services/trip-service/internal/service"
 	"ride-sharing/shared/env"
+	"ride-sharing/shared/messaging"
 	"syscall"
 
 	grpcserver "google.golang.org/grpc"
@@ -20,6 +21,7 @@ var (
 )
 
 func main() {
+	rabbitMQUri := env.GetString("RABBITMQ_URI", "amqp://guest:guest@rabbitmq:5672/")
 	inmemRepo := repository.NewInMemRepository()
 	svc := service.NewService(inmemRepo)
 
@@ -37,6 +39,15 @@ func main() {
 	if err != nil {
 		log.Fatalf("failed to listen: %v", err)
 	}
+
+	// Connect to RabbitMQ
+	rabbitmq, err := messaging.NewRabbitMQ(rabbitMQUri)
+	if err != nil {
+		log.Fatalf("failed to connect to RabbitMQ: %v", err)
+	}
+	defer rabbitmq.Close()
+
+	log.Printf("connected to RabbitMQ at %s", rabbitMQUri)
 
 	// Start gRPC server
 	grpcServer := grpcserver.NewServer()
