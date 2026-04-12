@@ -6,6 +6,7 @@ import (
 	"net"
 	"os"
 	"os/signal"
+	"ride-sharing/services/trip-service/internal/infrastructure/events"
 	"ride-sharing/services/trip-service/internal/infrastructure/grpc"
 	"ride-sharing/services/trip-service/internal/infrastructure/repository"
 	"ride-sharing/services/trip-service/internal/service"
@@ -49,9 +50,11 @@ func main() {
 
 	log.Printf("connected to RabbitMQ at %s", rabbitMQUri)
 
+	publisher := events.NewTripEventPublisher(rabbitmq)
+
 	// Start gRPC server
 	grpcServer := grpcserver.NewServer()
-	grpc.NewGRPCHandler(grpcServer, svc)
+	grpc.NewGRPCHandler(grpcServer, svc, publisher)
 
 	log.Printf("starting gRPC server Trip Service on %s", lis.Addr().String())
 	go func() {
